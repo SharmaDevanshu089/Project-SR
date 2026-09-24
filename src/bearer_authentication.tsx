@@ -10,7 +10,7 @@ export default function BearerAuthentication() {
         invoke("get_copernicus_token", { username: userEmail, password: userPassword })
             .then((token) => {
                 console.log("Token generated successfully:", token);
-                invoke("new_bearer_token", { bearer_token: token })
+                invoke("new_bearer_token", { bearerToken: token })
                     .then(() => {
                         console.log("Token saved successfully");
                     })
