@@ -10,6 +10,13 @@ export default function BearerAuthentication() {
         invoke("get_copernicus_token", { username: userEmail, password: userPassword })
             .then((token) => {
                 console.log("Token generated successfully:", token);
+                invoke("new_bearer_token", { bearer_token: token })
+                    .then(() => {
+                        console.log("Token saved successfully");
+                    })
+                    .catch((error) => {
+                        console.error("Error saving token:", error);
+                    });
             })
             .catch((error) => {
                 console.error("Error generating token:", error);
