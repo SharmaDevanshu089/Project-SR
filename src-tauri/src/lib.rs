@@ -1,4 +1,5 @@
 pub mod bearer_token_ops;
+pub mod fetch_image;
 mod generate_auth_token;
 use bearer_token_ops::{get_bearer_token, new_bearer_token};
 use generate_auth_token::get_copernicus_token;
