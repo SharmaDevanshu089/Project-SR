@@ -21,8 +21,6 @@ const CoordinatePicker: React.FC = () => {
             const lng = parseFloat(e.lngLat.lng.toFixed(6));
             const lat = parseFloat(e.lngLat.lat.toFixed(6));
             setCoords({ lat, lng });
-
-            // Drop a marker
             new mapboxgl.Marker().setLngLat([lng, lat]).addTo(map);
         });
 
@@ -32,7 +30,6 @@ const CoordinatePicker: React.FC = () => {
     const handleSend = () => {
         if (coords) {
             alert(`Coordinates submitted:\nLat: ${coords.lat}, Lng: ${coords.lng}`);
-            // Replace alert with API call or form submission logic
         }
     };
 
@@ -47,20 +44,22 @@ const CoordinatePicker: React.FC = () => {
                 ) : (
                     <p>Click on the map to select coordinates</p>
                 )}
-                <button
-                    onClick={handleSend}
-                    disabled={!coords}
-                    style={{
-                        padding: "10px 20px",
-                        background: "#0078d7",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: coords ? "pointer" : "not-allowed",
-                    }}
-                >
-                    Send
-                </button>
+                <form>
+                    <button
+                        onClick={handleSend}
+                        disabled={!coords}
+                        style={{
+                            padding: "10px 20px",
+                            background: "#0078d7",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: coords ? "pointer" : "not-allowed",
+                        }}
+                    >
+                        Send
+                    </button>
+                </form>
             </div>
         </div>
     );
