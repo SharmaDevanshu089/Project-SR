@@ -1,33 +1,47 @@
-import React, { useState } from "react";
+import React, { useRef, useEffect } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { useCoordinates } from "./CoordinateContext";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
-
-
 const CoordinatePicker: React.FC = () => {
-    const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const { coords, setCoords } = useCoordinates();
+    const markerRef = useRef<mapboxgl.Marker | null>(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const map = new mapboxgl.Map({
             container: "map",
             style: "mapbox://styles/mapbox/streets-v12",
-            center: [0, 20],
-            zoom: 2,
+            center: coords ? [coords.lng, coords.lat] : [0, 20],
+            zoom: coords ? 9 : 2,
         });
+
+        if (coords) {
+            markerRef.current = new mapboxgl.Marker()
+                .setLngLat([coords.lng, coords.lat])
+                .addTo(map);
+        }
 
         map.on("click", (e) => {
             const lng = parseFloat(e.lngLat.lng.toFixed(6));
             const lat = parseFloat(e.lngLat.lat.toFixed(6));
             setCoords({ lat, lng });
-            new mapboxgl.Marker().setLngLat([lng, lat]).addTo(map);
+
+            if (markerRef.current) {
+                markerRef.current.setLngLat([lng, lat]);
+            } else {
+                markerRef.current = new mapboxgl.Marker().setLngLat([lng, lat]).addTo(map);
+            }
         });
 
-        return () => map.remove();
+        return () => {
+            map.remove();
+        };
     }, []);
 
-    const handleSend = () => {
+    const handleSend = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
         if (coords) {
             alert(`Coordinates submitted:\nLat: ${coords.lat}, Lng: ${coords.lng}`);
         }
@@ -44,13 +58,14 @@ const CoordinatePicker: React.FC = () => {
                 ) : (
                     <p>Click on the map to select coordinates</p>
                 )}
-                <form>
+                <form onSubmit={(e) => e.preventDefault()}>
                     <button
+                        type="button"
                         onClick={handleSend}
                         disabled={!coords}
                         style={{
                             padding: "10px 20px",
-                            background: "#0078d7",
+                            background: coords ? "#0078d7" : "#cccccc",
                             color: "white",
                             border: "none",
                             borderRadius: "4px",
@@ -66,3 +81,4 @@ const CoordinatePicker: React.FC = () => {
 };
 
 export default CoordinatePicker;
+
