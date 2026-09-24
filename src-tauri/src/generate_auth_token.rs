@@ -1,7 +1,6 @@
 use reqwest::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::error::Error;
 
 #[derive(Debug, Deserialize)]
 struct AuthResponse {
@@ -16,7 +15,8 @@ struct AuthResponse {
     scope: String,
 }
 
-async fn get_copernicus_token(username: &str, password: &str) -> Result<String, Box<dyn Error>> {
+#[tauri::command]
+pub async fn get_copernicus_token(username: &str, password: &str) -> Result<String, String> {
     let url =
         "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token";
 
@@ -29,10 +29,15 @@ async fn get_copernicus_token(username: &str, password: &str) -> Result<String, 
     params.insert("grant_type", "password");
 
     println!("Fetching token from CDSE Keycloak");
-    let response = client.post(url).form(&params).send().await?;
+    let response = client
+        .post(url)
+        .form(&params)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
 
     if response.status().is_success() {
-        let auth_data: AuthResponse = response.json().await?;
+        let auth_data: AuthResponse = response.json().await.map_err(|e| e.to_string())?;
         println!(
             "Successfully retrieved token! (Expires in {} seconds)",
             auth_data.expires_in
@@ -40,7 +45,7 @@ async fn get_copernicus_token(username: &str, password: &str) -> Result<String, 
         println!("Access Token: {}", &auth_data.access_token);
         Ok(auth_data.access_token)
     } else {
-        let error_text = response.text().await?;
-        Err(format!("Authentication failed: {}", error_text).into())
+        let error_text = response.text().await.map_err(|e| e.to_string())?;
+        Err(format!("Authentication failed: {}", error_text))
     }
 }
