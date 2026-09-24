@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
 export default function BearerAuthentication() {
+    const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
@@ -13,6 +15,7 @@ export default function BearerAuthentication() {
                 invoke("new_bearer_token", { bearerToken: token })
                     .then(() => {
                         console.log("Token saved successfully");
+                        navigate("/select-coords");
                     })
                     .catch((error) => {
                         console.error("Error saving token:", error);
