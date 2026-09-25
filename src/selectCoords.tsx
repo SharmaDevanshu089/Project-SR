@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useCoordinates } from "./CoordinateContext";
@@ -7,6 +8,7 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const CoordinatePicker: React.FC = () => {
     const { coords, setCoords } = useCoordinates();
+    const navigate = useNavigate();
     const markerRef = useRef<mapboxgl.Marker | null>(null);
 
     useEffect(() => {
@@ -43,6 +45,7 @@ const CoordinatePicker: React.FC = () => {
     const handleSend = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
         if (coords) {
+            navigate("/execute-fetch");
             alert(`Coordinates submitted:\nLat: ${coords.lat}, Lng: ${coords.lng}`);
         }
     };
