@@ -129,6 +129,10 @@ python run_model.py --input input_RGBN.tiff --output output_super_res.tiff --vis
 | `input_RGBN.tiff` | GeoTIFF | Raw input GeoTIFF fetched from Copernicus | ~850 KB |
 | `height_map.tiff` | GeoTIFF (FLOAT32) | Digital Elevation Model (DEM) elevation raster | Varies |
 | `terrain.blend` | Blender 3D Scene | 3D terrain object with height displacement & AI texture | Varies |
+| `hallucination_heatmap.png` | 8-bit RGB PNG (Turbo) | Colormapped pixel-wise standard deviation (Uncertainty Heatmap) | ~5-10 MB |
+| `hallucination_overlay.png` | 8-bit RGB PNG | Super-res satellite image with glowing uncertainty highlights | ~10 MB |
+| `ensemble_consensus_sr.png` | 8-bit RGB PNG | Averaged consensus super-resolution image (noise-eliminated) | ~11 MB |
+| `hallucination_metric.tiff` | GeoTIFF (FLOAT32) | Full GIS-ready standard deviation uncertainty raster | Varies |
 
 ---
 
@@ -252,10 +256,11 @@ Switched `demInstance` in `src-tauri/src/get_height_map.rs` to `"COPERNICUS_90"`
 ### Workflow Overview
 1. **Frontend Flow:**
    - [src/get height map.tsx](file:///c:/Users/sharm/Project%20SR/src/get%20height%20map.tsx): On successful height map download, waits 1 second and automatically routes to `/execute-blender-shit`.
-   - [src/execute_blender_shit.tsx](file:///c:/Users/sharm/Project%20SR/src/execute_blender_shit.tsx): Automatically invokes `execute_blender_shit` on the Tauri backend and renders status.
+   - [src/execute_blender_shit.tsx](file:///c:/Users/sharm/Project%20SR/src/execute_blender_shit.tsx): Automatically invokes `execute_blender_shit` on the Tauri backend and renders status. On success, waits 1 second and routes to `/create-heatmap`.
    - [src/main.tsx](file:///c:/Users/sharm/Project%20SR/src/main.tsx): Added route `<Route path="/execute-blender-shit" element={<ExecuteBlenderShit />} />`.
 2. **Backend Rust Module (`src-tauri/src/execute_blender_shit.rs`):**
-   - Automatically detects Blender installation (checking `BLENDER_PATH`, system `PATH`, and standard Blender Foundation install directories).
+   - Automatically detects Blender installation (checking `C:\Blender\blender.exe`, `BLENDER_PATH`, system `PATH`, and standard install directories).
+   - Pre-converts raw Float32 elevation into a normalized 16-bit displacement PNG (`height_map_u16.png`).
    - Writes and executes a headless Python automation script (`blender -b -P create_terrain.py`).
 3. **Blender Node & Geometry Setup (`create_terrain.py`):**
    - Creates a 256x256 subdivided 3D grid mesh (`Terrain_3D`) with smooth shading.
@@ -312,6 +317,42 @@ Switched `demInstance` in `src-tauri/src/get_height_map.rs` to `"COPERNICUS_90"`
 4. **Clean Shader Tree & Viewport Rendering:**
    * Removed redundant displacement shader nodes, leaving a clean Principled BSDF with the satellite image connected to Base Color.
    * Rendered frame 1 in EEVEE to confirm: the 3D terrain with ridges, valleys, and draped satellite textures renders visibly and beautifully.
+
+---
+
+## 12. AI Hallucination & Uncertainty Heatmap Pipeline (Monte Carlo Input Perturbation)
+
+### Methodology & Mathematical Concept
+In $4\times$ satellite super-resolution, AI models can generate plausible-looking high-frequency details that do not exist in reality (hallucinations).
+* **Test-Time Input Perturbation:** Natural ground features (roads, fields, rivers) are invariant under minor radiometric sensor noise, while AI hallucinations are mathematically unstable and fluctuate between perturbations.
+* By injecting minor Gaussian noise ($\sigma \approx 0.012$) into $N = 5$ distinct variants of `input_RGBN.tiff` with unique seeds and running super-resolution on each:
+  * **Ensemble Consensus:** $\mu(x, y) = \frac{1}{N} \sum_{k=0}^{N-1} Y_k(x, y)$ (produces an exceptionally sharp, noise-free consensus image).
+  * **Pixel-Wise Hallucination Metric:** $\sigma(x, y) = \sqrt{\frac{1}{N} \sum_{k=0}^{N-1} (Y_k(x, y) - \mu(x, y))^2}$ (measures variance across predictions).
+  * High variance = High AI hallucination risk (mapped to bright yellow/red via the Turbo colormap).
+  * Low variance = High confidence ground truth (mapped to deep blue/purple).
+
+### Backend Implementation (`src-tauri/src/heatmap_ops.rs`)
+Exposes three Tauri commands:
+1. `generate_noise_variants`: Creates $N = 5$ distinct GeoTIFFs (`var_0.tiff` through `var_4.tiff`) with calibrated Gaussian reflectance noise.
+2. `run_super_res_single`: Runs GPU super-resolution on each individual variant using `run_model.py`, enabling granular step-by-step progress reporting.
+3. `compute_hallucination_analysis`: Computes pixel-wise standard deviation, applies Turbo colormapping to create `hallucination_heatmap.png`, creates `ensemble_consensus_sr.png`, creates a $65\%/35\%$ alpha-blended `hallucination_overlay.png`, and writes GIS-ready `hallucination_metric.tiff`. Generates base64 previews for instant frontend rendering.
+
+### Frontend Implementation (`src/create_heatmap.tsx`)
+* Automatically triggers sequential execution with a 1-second delay between steps to display progress visually.
+* Features an interactive tabbed interface toggling between:
+  1. **Heatmap Overlay:** Satellite imagery with glowing red/yellow highlights over hallucinated features.
+  2. **Raw Uncertainty Heatmap:** Pure Turbo colormap showing structural confidence.
+  3. **Clean Consensus Super-Res:** Averaged ensemble image with noise eliminated.
+
+### Architecture & Stability Fixes
+
+1. **Vite File Watcher `EBUSY` Crash Prevention:**
+   * **Root Cause:** When Python wrote large 50MB GeoTIFF files (`sr_var_0.tiff`) directly into the project directory, Vite's Node.js `chokidar` file watcher attempted to read/stat the file concurrently while Python's file handle was open and locked on Windows, throwing `EBUSY: resource busy or locked` and crashing the Vite dev process.
+   * **Solution:** Configured `server.watch.ignored` in [vite.config.ts](file:///c:/Users/sharm/Project%20SR/vite.config.ts) to ignore `**/*.tiff`, `**/*.tif`, `**/*.png`, `**/*.blend*`, `**/.venv/**`, and `**/model/**`.
+
+2. **Async Worker Thread Offloading (`tauri::async_runtime::spawn_blocking`):**
+   * **Root Cause:** Running blocking `std::process::Command` calls directly on the main Tauri invocation thread risks freezing the application's UI event loop.
+   * **Solution:** Converted all commands in [heatmap_ops.rs](file:///c:/Users/sharm/Project%20SR/src-tauri/src/heatmap_ops.rs) to `pub async fn` using `tauri::async_runtime::spawn_blocking(move || { ... }).await`. This offloads heavy subprocess execution to worker threads while keeping super-resolution inference strictly sequential (1 image at a time) to guarantee GPU VRAM stability.
 
 
 

@@ -33,5 +33,10 @@ output_*.png
 comparison_*.png
 render_preview*.png
 height_map_*.png
+hallucination_*.png
+hallucination_*.tiff
+ensemble_*.png
+var_*.tiff
+sr_var_*.tiff
 *.blend*
 create_terrain.py
