@@ -3,43 +3,53 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { useCoordinates } from "./CoordinateContext";
 
-export default function ExecuteFetch() {
+export default function GetHeightMap() {
     const { coords } = useCoordinates();
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+    const [message, setMessage] = useState<string>("");
     const navigate = useNavigate();
 
     useEffect(() => {
         if (!coords) {
-            console.error("No coordinates found in context.");
             setStatus("error");
+            setMessage("No coordinates found");
             return;
         }
 
-        console.log("Fetching image for coordinates:", coords);
-        invoke<string>("fetch_sentinel_patch", {
+        invoke<string>("get_height_map", {
             lat: coords.lat,
             lon: coords.lng,
             lng: coords.lng,
         })
             .then((res) => {
-                console.log("Success:", res);
                 setStatus("success");
+                setMessage(res);
                 setTimeout(() => {
-                    navigate("/get-height-map");
+                    navigate("/execute-blender-shit");
                 }, 1000);
             })
             .catch((err) => {
-                console.error("Error:", err);
                 setStatus("error");
+                setMessage(String(err));
             });
     }, [coords, navigate]);
 
     return (
         <div style={{ padding: "40px", fontFamily: "sans-serif" }}>
-            {status === "loading" && <p>loading image</p>}
-            {status === "success" && <p>success, redirecting to height map...</p>}
-            {status === "error" && <p>error</p>}
+            <h2>Height Map Fetcher</h2>
+            {status === "loading" && <p>Fetching height map...</p>}
+            {status === "success" && (
+                <div>
+                    <p style={{ color: "green" }}>Success!</p>
+                    <p>{message}</p>
+                </div>
+            )}
+            {status === "error" && (
+                <div>
+                    <p style={{ color: "red" }}>Error</p>
+                    <p>{message}</p>
+                </div>
+            )}
         </div>
     );
 }
-

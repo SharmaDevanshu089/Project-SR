@@ -25,3 +25,11 @@ dist-ssr
 .env
 project-sr.config
 *.tiff
+.venv/
+__pycache__/
+*.py[cod]
+model/
+output_*.png
+comparison_*.png
+*.blend*
+create_terrain.py

@@ -1,0 +1,1 @@
+with open(" blender_ran.txt\, \w\) as f: f.write(\SUCCESS\)
