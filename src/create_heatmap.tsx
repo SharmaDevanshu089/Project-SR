@@ -78,32 +78,21 @@ export default function CreateHeatmap() {
     }
 
     return (
-        <div style={{ padding: "30px", fontFamily: "sans-serif", maxWidth: "1000px", margin: "0 auto" }}>
+        <div style={{ padding: "20px", maxWidth: "800px", margin: "40px auto" }}>
             <h2>AI Hallucination & Uncertainty Heatmap</h2>
             
-            <div style={{ padding: "15px", background: "#f5f5f5", borderRadius: "8px", marginBottom: "20px" }}>
-                <p style={{ margin: "0 0 8px 0", fontWeight: "bold" }}>
-                    {step === 0 ? "Awaiting Start" : step < 4 ? "Processing Pipeline..." : "Completed"}
-                </p>
-                <p style={{ margin: 0, color: error ? "red" : "#333" }}>
-                    {error ? `Error: ${error}` : statusMessage}
-                </p>
-            </div>
+            <p>{error ? `Error: ${error}` : statusMessage}</p>
+
+            {isRunning && (
+                <p>Loading... Processing super-resolution variants on GPU.</p>
+            )}
 
             {step === 0 && !isRunning && (
-                <div style={{ marginBottom: "20px" }}>
+                <div style={{ marginBottom: "16px" }}>
                     <button
+                        type="button"
                         onClick={runPipeline}
-                        style={{
-                            padding: "12px 24px",
-                            backgroundColor: "#0078d7",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "6px",
-                            fontSize: "14px",
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                        }}
+                        style={{ padding: "10px", cursor: "pointer" }}
                     >
                         Start Hallucination Heatmap Generation
                     </button>
@@ -111,18 +100,16 @@ export default function CreateHeatmap() {
             )}
 
             {result && (
-                <div>
-                    <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+                <div style={{ marginTop: "20px" }}>
+                    <div style={{ marginBottom: "15px" }}>
                         <button
                             type="button"
                             onClick={() => setSelectedTab("overlay")}
                             style={{
-                                padding: "8px 16px",
-                                background: selectedTab === "overlay" ? "#0078d7" : "#e0e0e0",
-                                color: selectedTab === "overlay" ? "white" : "black",
-                                border: "none",
-                                borderRadius: "4px",
+                                padding: "6px 12px",
+                                marginRight: "8px",
                                 cursor: "pointer",
+                                fontWeight: selectedTab === "overlay" ? "bold" : "normal",
                             }}
                         >
                             Heatmap Overlay
@@ -131,12 +118,10 @@ export default function CreateHeatmap() {
                             type="button"
                             onClick={() => setSelectedTab("heatmap")}
                             style={{
-                                padding: "8px 16px",
-                                background: selectedTab === "heatmap" ? "#0078d7" : "#e0e0e0",
-                                color: selectedTab === "heatmap" ? "white" : "black",
-                                border: "none",
-                                borderRadius: "4px",
+                                padding: "6px 12px",
+                                marginRight: "8px",
                                 cursor: "pointer",
+                                fontWeight: selectedTab === "heatmap" ? "bold" : "normal",
                             }}
                         >
                             Raw Uncertainty Heatmap
@@ -145,49 +130,68 @@ export default function CreateHeatmap() {
                             type="button"
                             onClick={() => setSelectedTab("consensus")}
                             style={{
-                                padding: "8px 16px",
-                                background: selectedTab === "consensus" ? "#0078d7" : "#e0e0e0",
-                                color: selectedTab === "consensus" ? "white" : "black",
-                                border: "none",
-                                borderRadius: "4px",
+                                padding: "6px 12px",
+                                marginRight: "8px",
                                 cursor: "pointer",
+                                fontWeight: selectedTab === "consensus" ? "bold" : "normal",
                             }}
                         >
-                            Clean Consensus Super-Res
+                            Clean Consensus Super-Res (PNG)
                         </button>
                     </div>
 
-                    <div style={{ border: "1px solid #ddd", borderRadius: "8px", padding: "15px", textAlign: "center" }}>
+                    <div>
                         {selectedTab === "overlay" && (
                             <div>
-                                <h4>Hallucination Heatmap Overlay (Red/Yellow = AI Uncertainty)</h4>
+                                <p><strong>Hallucination Heatmap Overlay (Red/Yellow = AI Uncertainty)</strong></p>
                                 <img
                                     src={result.overlay_b64}
                                     alt="Hallucination Overlay"
-                                    style={{ maxWidth: "100%", maxHeight: "550px", borderRadius: "4px" }}
+                                    style={{ maxWidth: "100%", maxHeight: "500px", display: "block", marginTop: "10px" }}
                                 />
                             </div>
                         )}
                         {selectedTab === "heatmap" && (
                             <div>
-                                <h4>Scientific Uncertainty Heatmap (Turbo Colormap)</h4>
+                                <p><strong>Scientific Uncertainty Heatmap (Turbo Colormap)</strong></p>
                                 <img
                                     src={result.heatmap_b64}
                                     alt="Raw Heatmap"
-                                    style={{ maxWidth: "100%", maxHeight: "550px", borderRadius: "4px" }}
+                                    style={{ maxWidth: "100%", maxHeight: "500px", display: "block", marginTop: "10px" }}
                                 />
                             </div>
                         )}
                         {selectedTab === "consensus" && (
                             <div>
-                                <h4>Ensemble Consensus (Averaged Noise-Free Super-Resolution)</h4>
+                                <p><strong>Ensemble Consensus Super-Resolution (Noise-Free 4x PNG)</strong></p>
                                 <img
                                     src={result.consensus_b64}
                                     alt="Consensus Super-Res"
-                                    style={{ maxWidth: "100%", maxHeight: "550px", borderRadius: "4px" }}
+                                    style={{ maxWidth: "100%", maxHeight: "500px", display: "block", marginTop: "10px" }}
                                 />
                             </div>
                         )}
+                    </div>
+
+                    <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #ccc" }}>
+                        <p><strong>Generated PNG Images:</strong></p>
+                        <ul style={{ paddingLeft: "20px" }}>
+                            <li>
+                                <a href={result.consensus_b64} download="ensemble_consensus_sr.png">
+                                    ensemble_consensus_sr.png (4× Super-Resolved Satellite PNG)
+                                </a>
+                            </li>
+                            <li>
+                                <a href={result.heatmap_b64} download="hallucination_heatmap.png">
+                                    hallucination_heatmap.png (Uncertainty Heatmap PNG)
+                                </a>
+                            </li>
+                            <li>
+                                <a href={result.overlay_b64} download="hallucination_overlay.png">
+                                    hallucination_overlay.png (Heatmap Overlay PNG)
+                                </a>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             )}

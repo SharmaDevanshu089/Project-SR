@@ -35,21 +35,13 @@ export default function GetHeightMap() {
     }, [coords, navigate]);
 
     return (
-        <div style={{ padding: "40px", fontFamily: "sans-serif" }}>
+        <div style={{ padding: "20px", maxWidth: "400px", margin: "40px auto" }}>
             <h2>Height Map Fetcher</h2>
-            {status === "loading" && <p>Fetching height map...</p>}
-            {status === "success" && (
-                <div>
-                    <p style={{ color: "green" }}>Success!</p>
-                    <p>{message}</p>
-                </div>
-            )}
-            {status === "error" && (
-                <div>
-                    <p style={{ color: "red" }}>Error</p>
-                    <p>{message}</p>
-                </div>
-            )}
+            <p>
+                {status === "loading" && "Fetching height map..."}
+                {status === "success" && `Success: ${message || "Height map acquired. Redirecting..."}`}
+                {status === "error" && `Error: ${message}`}
+            </p>
         </div>
     );
 }

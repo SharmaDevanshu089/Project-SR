@@ -35,10 +35,13 @@ export default function ExecuteFetch() {
     }, [coords, navigate]);
 
     return (
-        <div style={{ padding: "40px", fontFamily: "sans-serif" }}>
-            {status === "loading" && <p>loading image</p>}
-            {status === "success" && <p>success, redirecting to height map...</p>}
-            {status === "error" && <p>error</p>}
+        <div style={{ padding: "20px", maxWidth: "400px", margin: "40px auto" }}>
+            <h2>Satellite Image Fetcher</h2>
+            <p>
+                {status === "loading" && "Fetching Sentinel-2 4-band image..."}
+                {status === "success" && "Success: Image acquired. Redirecting to height map..."}
+                {status === "error" && "Error: Failed to fetch satellite image."}
+            </p>
         </div>
     );
 }

@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 export default function ExecuteBlenderShit() {
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
     const [message, setMessage] = useState<string>("");
+    const [isNavigating, setIsNavigating] = useState<boolean>(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -22,40 +23,34 @@ export default function ExecuteBlenderShit() {
             });
     }, []);
 
+    const handleProceed = () => {
+        setIsNavigating(true);
+        console.log("[execute_blender] Navigating to /create-heatmap...");
+        setTimeout(() => {
+            navigate("/create-heatmap");
+        }, 300);
+    };
+
     return (
-        <div style={{ padding: "40px", fontFamily: "sans-serif" }}>
+        <div style={{ padding: "20px", maxWidth: "400px", margin: "40px auto" }}>
             <h2>Blender 3D Object Generator</h2>
-            {status === "loading" && <p>Generating 3D terrain in Blender...</p>}
+            <p>
+                {status === "loading" && "Generating 3D terrain in Blender..."}
+                {status === "success" && (message ? `Success: ${message}` : "Success: 3D terrain generated.")}
+                {status === "error" && `Error: ${message}`}
+            </p>
             {status === "success" && (
-                <div>
-                    <p style={{ color: "green" }}>Success!</p>
-                    <p>{message}</p>
+                isNavigating ? (
+                    <p>Loading...</p>
+                ) : (
                     <button
-                        onClick={() => {
-                            console.log("[execute_blender] Navigating to /create-heatmap...");
-                            navigate("/create-heatmap");
-                        }}
-                        style={{
-                            marginTop: "16px",
-                            padding: "12px 24px",
-                            backgroundColor: "#0078d7",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "14px",
-                            fontWeight: "bold",
-                        }}
+                        type="button"
+                        onClick={handleProceed}
+                        style={{ padding: "10px", cursor: "pointer", width: "100%" }}
                     >
                         Initiate Hallucination Heatmap Generation
                     </button>
-                </div>
-            )}
-            {status === "error" && (
-                <div>
-                    <p style={{ color: "red" }}>Error</p>
-                    <p>{message}</p>
-                </div>
+                )
             )}
         </div>
     );

@@ -24,19 +24,87 @@ dist-ssr
 *.sw?
 .env
 project-sr.config
-*.tiff
+# Rust / Cargo build outputs
+target/
+**/target/
+src-tauri/target/
+**/*.rs.bk
+
+# Virtual environments
 .venv/
+venv/
+env/
+ENV/
+
+# Python cache & build
 __pycache__/
 *.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Large media & videos
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.wmv
+*.flv
+
+# Presentations & large slide decks
+*.pptx
+*.ppt
+*.key
+
+# Model weights & large binaries
 model/
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.onnx
+*.ckpt
+*.weights
+*.h5
+
+# GeoTIFF & satellite rasters
+*.tiff
+*.tif
+*.aux.xml
+*.tiff.aux.xml
+**/*.tiff
+**/*.tif
+var_*.tiff
+sr_var_*.tiff
+hallucination_*.tiff
+super_resolved_*.tiff
+input_*.tiff
+height_map_*.tiff
+
+# Generated preview images & heatmaps
 output_*.png
 comparison_*.png
 render_preview*.png
 height_map_*.png
 hallucination_*.png
-hallucination_*.tiff
 ensemble_*.png
-var_*.tiff
-sr_var_*.tiff
+texture_preview*.png
+texture_preview.png
+output_super_res_visual.png
+comparison_before_after.png
+*.png000*.png
+*.npy
+*.npz
+
+# Blender files & terrain script
 *.blend*
 create_terrain.py
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
