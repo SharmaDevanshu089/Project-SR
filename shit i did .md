@@ -259,11 +259,59 @@ Switched `demInstance` in `src-tauri/src/get_height_map.rs` to `"COPERNICUS_90"`
    - Writes and executes a headless Python automation script (`blender -b -P create_terrain.py`).
 3. **Blender Node & Geometry Setup (`create_terrain.py`):**
    - Creates a 256x256 subdivided 3D grid mesh (`Terrain_3D`) with smooth shading.
-   - Attaches a **Displace Modifier** with an Image Texture referencing `height_map.tiff` mapped to UV coordinates (mid-level 0.0, strength 1.5).
-   - Configures a complete **Principled BSDF Shader Node Tree**:
+   - Attaches a **Displace Modifier** with an Image Texture referencing `height_map_u16.png` mapped to UV coordinates (mid-level 0.0, strength 0.72).
+   - Configures a clean **Principled BSDF Shader Node Tree**:
      - Image Texture (`output_super_res_visual.png`) connected to **Base Color**.
-     - Image Texture (`height_map.tiff`) connected to a **Displacement Node** (Height $\rightarrow$ Displacement $\rightarrow$ Material Output).
    - Sets up a Sun light and Camera.
    - Saves the final 3D scene to `terrain.blend`.
+
+---
+
+## 11. Debugging Blender Terrain: "Mesh Flew to Z=10000" & Extent Diagnosis
+
+### The Symptom
+* `Terrain_3D` existed in the Outliner, but nothing appeared in the Viewport or camera view.
+* Diagnostic inside `terrain.blend` revealed:
+  ```text
+  obj.dimensions == (10.0, 10.0, 0.0)
+  Bound box: all Z coordinates were at Z = 10000.0
+  Height image stats: min = 1.0, max = 11,193,388.0, mean = 3,181,023.26, colorspace = 'sRGB'
+  ```
+* Because Blender's default viewport clipping distance is 1000 units, a mesh displaced to $Z = 10,000$ was completely outside the view frustum and invisible.
+
+---
+
+### Root Cause Analysis
+
+#### 1. Why Blender read values up to 11.19 Million from `height_map.tiff`
+* `height_map.tiff` contains legitimate elevation values ($545.15\text{m} - 912.62\text{m}$) stored as **single-band Float32** with DEFLATE compression.
+* **Blender's OpenImageIO TIFF decoder does not natively decode 1-channel Float32 GeoTIFFs as raw elevation.** Instead, it misinterprets the 4-byte IEEE 754 floating point sequence as an un-premultiplied 4-channel RGBA pixel buffer and applies an sRGB gamma transformation curve.
+* A floating-point number like $545.0$ has the hex byte pattern `0x44084000`, which when read as integer/byte components evaluates to millions ($11,193,388$).
+* Multiplying by the modifier strength resulted in vertices displaced to $Z = 10,000.0$.
+
+#### 2. The Apparent "Geolocation Mismatch"
+* Verification with `rasterio` showed:
+  * `height_map.tiff` bounds: `[73.68399, 24.55778, 73.78516, 24.64977]`
+  * `input_RGBN.tiff` bounds: `[73.68399, 24.55778, 73.78516, 24.64977]`
+  * **They match to the exact millionth of a degree.**
+* The mismatch observed earlier occurred because `output_super_res_visual.png` had not been re-generated for the new coordinates (it was an artifact from yesterday's old coordinates before `run_model.py` was executed on the new input).
+
+---
+
+### Fixes Applied
+
+1. **Normalized 16-Bit Displacement Map (`height_map_u16.png`):**
+   * Before running Blender, [execute_blender_shit.rs](file:///c:/Users/sharm/Project%20SR/src-tauri/src/execute_blender_shit.rs) runs a lightweight Python normalization step using `rasterio` and `Pillow`.
+   * Maps raw elevation $[545.15\text{m}, 912.62\text{m}]$ linearly to a 16-bit grayscale PNG ($0 - 65,535$, providing sub-millimeter vertical precision).
+2. **Blender Non-Color Color Space:**
+   * Loaded `height_map_u16.png` with `colorspace_settings.name = "Non-Color"`, completely eliminating sRGB nonlinear distortion.
+   * Loaded with `check_existing=False` to prevent stale image datablock caching.
+3. **Proportional Physical Displacement Strength:**
+   * Scaled displacement strength to $0.72$ (proportional physical relief for a 10-unit grid covering a 10.2km area with 367m elevation relief, exaggerated 2x for great 3D depth).
+   * Resulting mesh bounds: $Z_{\min} = 0.0$, $Z_{\max} = 0.72$. Dimensions: $(10.0, 10.0, 0.72)$.
+4. **Clean Shader Tree & Viewport Rendering:**
+   * Removed redundant displacement shader nodes, leaving a clean Principled BSDF with the satellite image connected to Base Color.
+   * Rendered frame 1 in EEVEE to confirm: the 3D terrain with ridges, valleys, and draped satellite textures renders visibly and beautifully.
+
 
 

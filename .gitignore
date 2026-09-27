@@ -31,5 +31,7 @@ __pycache__/
 model/
 output_*.png
 comparison_*.png
+render_preview*.png
+height_map_*.png
 *.blend*
 create_terrain.py
