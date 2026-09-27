@@ -34,6 +34,8 @@ pub async fn generate_noise_variants(
         let num_variants = count.unwrap_or(5);
         let py = find_python();
 
+        println!("[heatmap_ops] Generating {} noise variants from {}", num_variants, base_name);
+
         let script = format!(
             r#"
 import os, numpy as np, rasterio
@@ -46,6 +48,10 @@ with rasterio.open(src_file) as src:
     data = src.read()
     profile = src.profile.copy()
 
+profile.pop("compress", None)
+profile.pop("interleave", None)
+profile.update(tiled=False)
+
 is_uint16 = data.max() > 1.0
 noise_scale = 120.0 if is_uint16 else 0.012
 
@@ -55,7 +61,7 @@ for i in range({count}):
     if is_uint16:
         noisy = np.clip(data.astype(np.float32) + noise, 0, 65535).astype(np.uint16)
     else:
-        noisy = np.clip(data + noise, 0.0, 1.0)
+        noisy = np.clip(data + noise, 0.0, 1.0).astype(np.float32)
 
     out_file = f"var_{{i}}.tiff"
     with rasterio.open(out_file, "w", **profile) as dst:
@@ -63,6 +69,7 @@ for i in range({count}):
     if os.path.exists("../package.json"):
         with rasterio.open(os.path.join("..", out_file), "w", **profile) as dst:
             dst.write(noisy)
+    print(f"Created {{out_file}}")
 "#,
             base = base_name,
             count = num_variants
@@ -76,6 +83,7 @@ for i in range({count}):
 
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr);
+            println!("[heatmap_ops] Noise generation failed: {}", err);
             return Err(format!("Noise generation error: {}", err));
         }
 
@@ -84,6 +92,7 @@ for i in range({count}):
             filenames.push(format!("var_{}.tiff", i));
         }
 
+        println!("[heatmap_ops] Successfully generated {} noise variants", filenames.len());
         Ok(filenames)
     })
     .await
@@ -94,10 +103,10 @@ for i in range({count}):
 pub async fn run_super_res_single(input_path: String, output_path: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let py = find_python();
-        let script_file = if Path::new("run_model.py").exists() {
-            "run_model.py"
+        let script_file = if Path::new("super_res_image_with_args.py").exists() {
+            "super_res_image_with_args.py"
         } else {
-            "../run_model.py"
+            "../super_res_image_with_args.py"
         };
 
         let resolved_input = if Path::new(&input_path).exists() {
@@ -108,6 +117,8 @@ pub async fn run_super_res_single(input_path: String, output_path: String) -> Re
             input_path.clone()
         };
 
+        println!("[heatmap_ops] Executing super-resolution on {} -> {}", resolved_input, output_path);
+
         let output = Command::new(&py)
             .arg(script_file)
             .arg("--input")
@@ -117,8 +128,12 @@ pub async fn run_super_res_single(input_path: String, output_path: String) -> Re
             .output()
             .map_err(|e| format!("Failed to execute super-resolution on {}: {}", input_path, e))?;
 
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        println!("{}", stdout);
+
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr);
+            println!("[heatmap_ops] Super-resolution failed for {}: {}", input_path, err);
             return Err(format!("Super-resolution error for {}: {}", input_path, err));
         }
 
@@ -126,6 +141,7 @@ pub async fn run_super_res_single(input_path: String, output_path: String) -> Re
             let _ = fs::copy(&output_path, Path::new("..").join(&output_path));
         }
 
+        println!("[heatmap_ops] Finished super-resolution for {}", output_path);
         Ok(format!("Super-resolution completed for {}", output_path))
     })
     .await
@@ -138,6 +154,8 @@ pub async fn compute_hallucination_analysis(
 ) -> Result<HeatmapResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let py = find_python();
+        println!("[heatmap_ops] Starting hallucination analysis on {} super-resolved images", sr_images.len());
+
         let img_list_str = sr_images
             .iter()
             .map(|s| format!("\"{}\"", s))
@@ -205,7 +223,9 @@ if os.path.exists("../package.json"):
     Image.fromarray(overlay_u8).save("../hallucination_overlay.png")
 
 if ref_profile:
-    ref_profile.update(count=1, dtype="float32", compress="deflate")
+    ref_profile.pop("compress", None)
+    ref_profile.pop("interleave", None)
+    ref_profile.update(count=1, dtype="float32", compress="deflate", tiled=True, blockxsize=256, blockysize=256)
     with rasterio.open("hallucination_metric.tiff", "w", **ref_profile) as dst:
         dst.write(uncertainty.astype(np.float32), 1)
     if os.path.exists("../package.json"):
@@ -241,6 +261,7 @@ print(json.dumps(result))
 
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr);
+            println!("[heatmap_ops] Hallucination computation failed: {}", err);
             return Err(format!("Hallucination calculation error: {}", err));
         }
 
@@ -249,6 +270,7 @@ print(json.dumps(result))
         let res: HeatmapResult = serde_json::from_str(trimmed)
             .map_err(|e| format!("Failed to parse heatmap JSON response: {}. Output: {}", e, trimmed))?;
 
+        println!("[heatmap_ops] Hallucination analysis completed successfully");
         Ok(res)
     })
     .await

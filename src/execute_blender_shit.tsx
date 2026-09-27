@@ -8,19 +8,19 @@ export default function ExecuteBlenderShit() {
     const navigate = useNavigate();
 
     useEffect(() => {
+        console.log("[execute_blender] Invoking execute_blender_shit...");
         invoke<string>("execute_blender_shit")
             .then((res) => {
+                console.log("[execute_blender] Blender generation successful:", res);
                 setStatus("success");
                 setMessage(res);
-                setTimeout(() => {
-                    navigate("/create-heatmap");
-                }, 1000);
             })
             .catch((err) => {
+                console.error("[execute_blender] Blender generation failed:", err);
                 setStatus("error");
                 setMessage(String(err));
             });
-    }, [navigate]);
+    }, []);
 
     return (
         <div style={{ padding: "40px", fontFamily: "sans-serif" }}>
@@ -30,6 +30,25 @@ export default function ExecuteBlenderShit() {
                 <div>
                     <p style={{ color: "green" }}>Success!</p>
                     <p>{message}</p>
+                    <button
+                        onClick={() => {
+                            console.log("[execute_blender] Navigating to /create-heatmap...");
+                            navigate("/create-heatmap");
+                        }}
+                        style={{
+                            marginTop: "16px",
+                            padding: "12px 24px",
+                            backgroundColor: "#0078d7",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "bold",
+                        }}
+                    >
+                        Initiate Hallucination Heatmap Generation
+                    </button>
                 </div>
             )}
             {status === "error" && (

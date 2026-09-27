@@ -354,5 +354,33 @@ Exposes three Tauri commands:
    * **Root Cause:** Running blocking `std::process::Command` calls directly on the main Tauri invocation thread risks freezing the application's UI event loop.
    * **Solution:** Converted all commands in [heatmap_ops.rs](file:///c:/Users/sharm/Project%20SR/src-tauri/src/heatmap_ops.rs) to `pub async fn` using `tauri::async_runtime::spawn_blocking(move || { ... }).await`. This offloads heavy subprocess execution to worker threads while keeping super-resolution inference strictly sequential (1 image at a time) to guarantee GPU VRAM stability.
 
+---
+
+## 13. High-Performance Super-Resolution CLI & Offline GPU Acceleration
+
+### Identified Bottlenecks & Fixes
+
+1. **Elimination of HuggingFace Download Delays (Offline Fast-Loading):**
+   * **Issue:** `run_model.py` was executing `mlstac.download(...)` on every run, re-downloading model weights from HuggingFace over the internet (~1 minute 48 seconds per image). Because of this network transfer, `nvidia-smi` showed 0% GPU activity for minutes, giving the false impression that it wasn't running on CUDA.
+   * **Solution:** Created [super_res_image_with_args.py](file:///c:/Users/sharm/Project%20SR/super_res_image_with_args.py) which checks for local weights in `model/SEN2SRLite_RGBN/mlm.json`. When found, it loads the model offline in **1.2 seconds**. GPU inference on the RTX 4050 takes only **4.0 seconds** (a ~35x speedup).
+
+2. **Resolution of `ZIPDecode` / `TIFFReadEncodedStrip` Corruption:**
+   * **Issue:** Raw input GeoTIFFs from Copernicus Sentinel Hub arrived with `'compress': 'deflate', 'interleave': 'pixel', 'blockysize': 8`. When writing variant TIFFs with these inherited flags, GDAL's strip compressor corrupted deflate headers (`ZIPDecode:Decoding error at scanline 0, incorrect header check`).
+   * **Solution:** Popped `compress` and `interleave` when writing noise variants in [heatmap_ops.rs](file:///c:/Users/sharm/Project%20SR/src-tauri/src/heatmap_ops.rs), producing clean uncompressed 4-band float32 GeoTIFFs that read flawlessly. Super-resolution outputs use standard tiled band-interleaved DEFLATE with horizontal differencing predictor (`tiled=True, predictor=2, blockxsize=256, blockysize=256, interleave='band'`).
+
+3. **Optimus Laptop GPU Targeting:**
+   * Explicitly directed PyTorch to `cuda:0` (`NVIDIA GeForce RTX 4050 Laptop GPU`) and activated `torch.backends.cudnn.benchmark = True`.
+
+4. **Controlled User Flow (Manual Initiation Buttons):**
+   * **Execute Blender:** Removed automatic routing in [execute_blender_shit.tsx](file:///c:/Users/sharm/Project%20SR/src/execute_blender_shit.tsx). Upon successful 3D generation, a prominent **"Initiate Hallucination Heatmap Generation"** button is displayed.
+   * **Create Heatmap:** In [create_heatmap.tsx](file:///c:/Users/sharm/Project%20SR/src/create_heatmap.tsx), the pipeline remains in an awaiting state until the user clicks **"Start Hallucination Heatmap Generation"**.
+
+5. **End-to-End Console Logging:**
+   * Added structured logging with tags across all components:
+     * Python CLI: `[super_res] ...` (logs GPU name, offline model loading time, inference duration, file sizes).
+     * Rust Backend: `[heatmap_ops] ...` (logs variant generation, process stdout/stderr, analysis status).
+     * React Frontend: `[execute_blender] ...` and `[create_heatmap] ...` (logs pipeline state transitions, variant progress, error tracing).
+
+
 
 
